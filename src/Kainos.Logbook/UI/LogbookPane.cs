@@ -18,6 +18,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Kainos.Logbook.Lookup;
+using Kainos.Logbook.Services;
 using Kainos.Modules;
 
 namespace Kainos.Logbook.UI
@@ -29,8 +30,9 @@ namespace Kainos.Logbook.UI
 
         private readonly Book _book;
         private readonly Feeds _feeds;
+        private readonly Uploader _up;
         private readonly IKainosTheme _t;
-        private readonly KButton _tabLog, _import, _export, _settings, _pop, _logBtn;
+        private readonly KButton _tabLog, _import, _export, _uploads, _settings, _pop, _logBtn;
         private readonly Label _status, _auto;
         private readonly Field _call, _sent, _rcvd, _name, _park, _comment;
         private readonly FlagStrip _flags;
@@ -47,10 +49,11 @@ namespace Kainos.Logbook.UI
 
         public event Action PopToggled;
 
-        public LogbookPane(Book book, Feeds feeds)
+        public LogbookPane(Book book, Feeds feeds, Uploader up)
         {
             _book = book;
             _feeds = feeds;
+            _up = up;
             _t = book.Host.Theme;
             BackColor = _t.Bg;
             DoubleBuffered = true;
@@ -68,6 +71,7 @@ namespace Kainos.Logbook.UI
             _tabLog.On = true;
             _import = btn("Import…", "Bring QSOs in from an ADIF file (another logger, LoTW, QRZ). QSOs already in the log are skipped.");
             _export = btn("Export…", "Save the log as ADIF, ADX or CSV");
+            _uploads = btn("Uploads…", "LoTW, eQSL, QRZ Logbook and Club Log: switch them on, see what's waiting, preview, send, get confirmations");
             _settings = btn("Settings…", "Station, QRZ / HamQTH lookups, what counts as confirmed, QSOs from the other modules");
             _pop = btn("Pop out", "Docked under the panadapter, or in its own window");
             _logBtn = btn("LOG  ⏎", "Log the QSO (Enter)");
@@ -95,6 +99,9 @@ namespace Kainos.Logbook.UI
             _import.Click += (s, e) => import();
             _export.Click += (s, e) => { using (ExportForm f = new ExportForm(_book)) f.ShowDialog(FindForm()); };
             _settings.Click += (s, e) => { using (SettingsForm f = new SettingsForm(_book, _feeds)) if (f.ShowDialog(FindForm()) == DialogResult.OK) { analyse(); _card.Invalidate(); } };
+            _uploads.Click += (s, e) => { using (ServicesForm f = new ServicesForm(_book, _up)) f.ShowDialog(FindForm()); uploadsText(); };
+            _up.Status += m => _book.Host.BeginInvoke(() => status(m));
+            _up.Changed += () => _book.Host.BeginInvoke(uploadsText);
             _pop.Click += (s, e) => PopToggled?.Invoke();
             _logBtn.Click += (s, e) => logIt();
 
@@ -152,6 +159,7 @@ namespace Kainos.Logbook.UI
             int right = pad + w;
             _pop.SetBounds(right - _t.S(70), y, _t.S(70), bh); right -= _t.S(76);
             _settings.SetBounds(right - _t.S(78), y, _t.S(78), bh); right -= _t.S(84);
+            _uploads.SetBounds(right - _t.S(96), y, _t.S(96), bh); right -= _t.S(102);
             _export.SetBounds(right - _t.S(70), y, _t.S(70), bh); right -= _t.S(76);
             _import.SetBounds(right - _t.S(70), y, _t.S(70), bh); right -= _t.S(76);
             _status.SetBounds(x + _t.S(4), y, Math.Max(10, right - x - _t.S(8)), bh);
@@ -277,6 +285,7 @@ namespace Kainos.Logbook.UI
                 return;
             }
             Qso q = _book.NewFromRadio();
+            q.LoggedHere = true;
             if (_started.HasValue) { q.TimeOn = _started.Value; q.Set("TIME_OFF", DateTime.UtcNow.ToString("HHmmss", CultureInfo.InvariantCulture)); q.Set("QSO_DATE_OFF", DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture)); }
             q.Call = call;
             q.RstSent = _sent.Text.Trim();
@@ -288,6 +297,7 @@ namespace Kainos.Logbook.UI
             _book.Fill(q, _info != null && Cty.BaseCall(call, out string _) == Cty.BaseCall(_info.Call ?? "", out string _) ? _info : null);
             try { _book.Store.Add(q); }
             catch (Exception ex) { status("Couldn't save the log: " + ex.Message); return; }
+            _up.Kick(true);
             status("Logged " + q.Call + " · " + q.Band + " " + q.ModeShown + (q.Name.Length > 0 ? " · " + q.Name : ""));
             clear();
         }
@@ -305,13 +315,14 @@ namespace Kainos.Logbook.UI
         private void refresh()
         {
             _grid.SetRows(_book.Store.All());
+            uploadsText();
             analyse();
         }
 
         private void edit(Qso q)
         {
             using (EditForm f = new EditForm(_t, q))
-                if (f.ShowDialog(FindForm()) == DialogResult.OK) { _book.Store.Update(f.Result); status("Saved " + f.Result.Call); }
+                if (f.ShowDialog(FindForm()) == DialogResult.OK) { Uploader.Edited(q, f.Result); _book.Store.Update(f.Result); status("Saved " + f.Result.Call); _up.Kick(false); }
         }
 
         private void delete(Qso q)
@@ -336,6 +347,13 @@ namespace Kainos.Logbook.UI
                 }
                 catch (Exception ex) { status("Couldn't import: " + ex.Message); }
             }
+        }
+
+        // the button shows how many QSOs are waiting to go
+        private void uploadsText()
+        {
+            int n = _up.WaitingTotal;
+            _uploads.Text = n > 0 ? "Uploads (" + n + ")" : "Uploads…";
         }
 
         private void status(string s)

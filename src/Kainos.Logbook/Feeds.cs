@@ -79,7 +79,7 @@ namespace Kainos.Logbook
             }
             // the file's header is only in its first read; later reads start mid-file with a record
             List<Qso> qsos = Adif.Parse(text.IndexOf("<eoh>", StringComparison.OrdinalIgnoreCase) >= 0 ? text : "<EOH>" + text);
-            foreach (Qso q in qsos) q.Set("APP_KAINOS_FROM", src[0]);
+            foreach (Qso q in qsos) { q.Set("APP_KAINOS_FROM", src[0]); q.LoggedHere = true; }
             int added = _store.AddMany(qsos);
             _host.SetSetting(key, pos.ToString(CultureInfo.InvariantCulture));
             if (added > 0) { _host.Log("feed " + src[0] + ": " + added + " QSO(s) added"); Added?.Invoke(added, src[2]); }

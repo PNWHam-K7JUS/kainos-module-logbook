@@ -19,6 +19,7 @@ Copyright (C) 2026 Justin Cron K7JUS
 */
 
 using System;
+using Kainos.Logbook.Services;
 using Kainos.Logbook.UI;
 using Kainos.Modules;
 
@@ -29,6 +30,7 @@ namespace Kainos.Logbook
         private IKainosHost _host;
         private Book _book;
         private Feeds _feeds;
+        private Uploader _uploader;
         private LogbookPane _view;
         private IKainosPane _pane;
         private IKainosMenuItem _menu;
@@ -40,7 +42,10 @@ namespace Kainos.Logbook
             try { _book.Store.Load(); }
             catch (Exception ex) { host.Log("couldn't read logbook.adi: " + ex.Message); }
             _feeds = new Feeds(host, _book.Store);
-            _view = new LogbookPane(_book, _feeds);
+            _uploader = new Uploader(host, _book.Store, _book.Http, () => _book.MyCall);
+            _feeds.Added += (n, from) => _uploader.Kick(true);
+            _uploader.Start();
+            _view = new LogbookPane(_book, _feeds, _uploader);
             _pane = host.CreatePane("Kainos Logbook", _view);
             _pane.Closed += (s, e) => close();
             _view.PopToggled += () => _pane.Popped = !_pane.Popped;
@@ -74,6 +79,7 @@ namespace Kainos.Logbook
 
         public void Stop()
         {
+            if (_uploader != null) _uploader.Stop();
             if (_view != null) _view.Running = false;
         }
 

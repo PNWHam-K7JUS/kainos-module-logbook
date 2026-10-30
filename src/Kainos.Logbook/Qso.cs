@@ -84,6 +84,19 @@ namespace Kainos.Logbook
         public char ClubLog { get { return Get("CLUBLOG_QSO_UPLOAD_STATUS") == "Y" ? 'u' : '\0'; } }
         public bool CardReceived { get { return Get("QSL_RCVD") == "Y"; } set { Set("QSL_RCVD", value ? "Y" : null); if (value) Set("QSLRDATE", DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture)); else Set("QSLRDATE", null); } }
 
+        // logged here (the LOG page, or a QSO from the FT8 / SSTV modules), not imported: only these are uploaded by
+        // themselves; an imported log is sent only if asked for
+        public bool LoggedHere { get { return Get("APP_KAINOS_NEW") == "Y"; } set { Set("APP_KAINOS_NEW", value ? "Y" : null); } }
+
+        public DateTime AddedUtc
+        {
+            get
+            {
+                DateTime r;
+                return DateTime.TryParseExact(Get("APP_KAINOS_ADDED"), "yyyyMMddHHmmss", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out r) ? r : DateTime.MinValue;
+            }
+        }
+
         public static string NewId() { return Guid.NewGuid().ToString("N").Substring(0, 16); }
     }
 }

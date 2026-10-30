@@ -55,6 +55,7 @@ namespace Kainos.Logbook
         public void Add(Qso q)
         {
             if (q.Id.Length == 0) q.Id = Qso.NewId();
+            stampAdded(q);
             lock (_lock)
             {
                 bool last = _qsos.Count == 0 || q.TimeOn >= _qsos[_qsos.Count - 1].TimeOn;
@@ -76,6 +77,7 @@ namespace Kainos.Logbook
                 {
                     if (q.Call.Length == 0 || q.TimeOn == DateTime.MinValue || isDupe(q)) continue;
                     if (q.Id.Length == 0 || _qsos.Any(x => x.Id == q.Id)) q.Id = Qso.NewId();
+                    stampAdded(q);
                     insertSorted(q);
                     n++;
                 }
@@ -104,6 +106,28 @@ namespace Kainos.Logbook
                 save();
             }
             raise();
+        }
+
+        // changes to QSOs already in the log (an upload's result, a confirmation), made to the QSO as it is now so an
+        // edit made meanwhile isn't lost. Returns how many were changed.
+        public int Modify(IEnumerable<string> ids, Action<Qso> change)
+        {
+            HashSet<string> want = new HashSet<string>(ids);
+            int n = 0;
+            lock (_lock)
+            {
+                foreach (Qso q in _qsos)
+                    if (want.Contains(q.Id)) { change(q); n++; }
+                if (n > 0) save();
+            }
+            if (n > 0) raise();
+            return n;
+        }
+
+        // when the QSO came into this log (UTC), so uploads switched on later don't send the whole old log
+        private static void stampAdded(Qso q)
+        {
+            if (q.Get("APP_KAINOS_ADDED").Length == 0) q.Set("APP_KAINOS_ADDED", DateTime.UtcNow.ToString("yyyyMMddHHmmss", System.Globalization.CultureInfo.InvariantCulture));
         }
 
         public void Delete(string id)

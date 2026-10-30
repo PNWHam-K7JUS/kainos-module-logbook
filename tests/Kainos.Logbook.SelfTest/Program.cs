@@ -51,6 +51,7 @@ namespace Kainos.Logbook.SelfTest
         [STAThread]
         private static int Main(string[] args)
         {
+            if (FakeTqsl.RunIfAsked(args)) return 0;      // started by the LoTW test as a stand-in TQSL
             bool online = args.Contains("--online");
             string root = Path.Combine(Path.GetTempPath(), "kainos-logbook-selftest-" + Guid.NewGuid().ToString("N").Substring(0, 6));
             Directory.CreateDirectory(root);
@@ -63,6 +64,7 @@ namespace Kainos.Logbook.SelfTest
                 worked(root);
                 feeds(root);
                 exports();
+                UploadTests.Run(root, check);
                 module(root);
                 if (online) onlineTests(root);
             }
@@ -264,6 +266,24 @@ namespace Kainos.Logbook.SelfTest
                 }
                 press(call, Keys.Escape);
                 check(call.Text == "", "pane: Esc clears");
+                Book book = new Book(h, "0.1.0");
+                book.Store.Load();
+                Kainos.Logbook.Services.Uploader upl = new Kainos.Logbook.Services.Uploader(h, book.Store, book.Http, () => "K7JUS");
+                upl.Get("eqsl").Enabled = true;
+                using (ServicesForm sf = new ServicesForm(book, upl) { StartPosition = FormStartPosition.Manual, Location = new Point(-4000, -4000), ShowInTaskbar = false })
+                {
+                    sf.Show();
+                    Application.DoEvents();
+                    using (Bitmap bmp = new Bitmap(sf.Width, sf.Height))
+                    {
+                        sf.DrawToBitmap(bmp, new Rectangle(0, 0, sf.Width, sf.Height));
+                        string png = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "logbook-uploads.png");
+                        bmp.Save(png, ImageFormat.Png);
+                        check(File.Exists(png), "uploads window: drawn to " + png);
+                    }
+                    sf.Close();
+                }
+                upl.Get("eqsl").Enabled = false;
                 pane.Running = false;
                 f.Controls.Remove(pane);
             }
