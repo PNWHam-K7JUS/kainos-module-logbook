@@ -23,7 +23,7 @@ namespace Kainos.Logbook.Contest
 
         public Messages(Contesting c) { _c = c; _h = c.Book.Host; }
 
-        public IKainosKeyer Keyer { get { return _h as IKainosKeyer; } }
+        public bool HasKeyer { get { return KeyerShim.Has(_h); } }
         public IKainosTheme Theme { get { return _h.Theme; } }
 
         public bool On { get { return _h.GetSetting("esm.on", "0") == "1"; } set { _h.SetSetting("esm.on", value ? "1" : "0"); } }
@@ -44,8 +44,7 @@ namespace Kainos.Logbook.Contest
         public string Send(int f, string call, int serial)
         {
             if (f < 1 || f > 3) return null;
-            IKainosKeyer k = Keyer;
-            if (k == null) return "Sending messages needs Kainos 1.0.15 or later";
+            if (!HasKeyer) return "Sending messages needs Kainos 1.0.15 or later";
             IKainosRadio r = _h.Radio;
             string mode = Contesting.ModeOf(r.Mode(r.TxReceiver));
             string name = f == 1 ? "CQ" : f == 2 ? "exchange" : "TU";
@@ -53,7 +52,7 @@ namespace Kainos.Logbook.Contest
             {
                 string text = Expand(Cw(f), call, serial);
                 if (text.Length == 0) return "F" + f + " has no CW message (Messages…)";
-                string problem = k.SendCw(text);
+                string problem = KeyerShim.SendCw(_h, text);
                 if (problem != null) return problem;
                 SendingSince = DateTime.UtcNow;
                 return "F" + f + " " + name + ": " + text;
@@ -61,7 +60,7 @@ namespace Kainos.Logbook.Contest
             if (mode == "PH")
             {
                 int slot = Slot(f);
-                if (k.Publish("dvk.send", slot.ToString(CultureInfo.InvariantCulture)) == 0) return "Phone messages need the Voice Keyer module (0.3 or later)";
+                if (KeyerShim.Publish(_h, "dvk.send", slot.ToString(CultureInfo.InvariantCulture)) == 0) return "Phone messages need the Voice Keyer module (0.3 or later)";
                 SendingSince = DateTime.UtcNow;
                 return "F" + f + " " + name + ": voice keyer slot F" + slot;
             }
@@ -71,13 +70,12 @@ namespace Kainos.Logbook.Contest
         // Esc: stop what's going out; true if there was something to stop
         public bool Stop()
         {
-            IKainosKeyer k = Keyer;
-            if (k == null) return false;
+            if (!HasKeyer) return false;
             // CW still going, or a voice message started in the last 30 s (the keyer's messages are short)
-            if (!k.CwSending && (DateTime.UtcNow - SendingSince).TotalSeconds > 30) return false;
+            if (!KeyerShim.CwSending(_h) && (DateTime.UtcNow - SendingSince).TotalSeconds > 30) return false;
             SendingSince = DateTime.MinValue;
-            k.StopCw();
-            k.Publish("dvk.stop", "");
+            KeyerShim.StopCw(_h);
+            KeyerShim.Publish(_h, "dvk.stop", "");
             return true;
         }
     }

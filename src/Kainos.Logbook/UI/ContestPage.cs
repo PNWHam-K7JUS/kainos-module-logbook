@@ -65,8 +65,7 @@ namespace Kainos.Logbook.UI
             _msg = new Messages(c);
             _messages = btn("Messages…", "Send CQ / the exchange / TU with Enter and F1 - F3: CW through Kainos's keyer, phone through the Voice Keyer module");
             _messages.Click += (s, e) => { using (MessagesForm f = new MessagesForm(_msg)) f.ShowDialog(FindForm()); check(); };
-            IKainosKeyer keyer = _book.Host as IKainosKeyer;
-            if (keyer != null) keyer.Subscribe("dvk.status", m => Status?.Invoke("Voice keyer: " + m));
+            if (KeyerShim.Has(_book.Host)) KeyerShim.Subscribe(_book.Host, "dvk.status", m => Status?.Invoke("Voice keyer: " + m));
             _mine = btn("My exchange…", "What you send: section, state, name, class, county ... (zones and grid come from your call and grid)");
             _newSession = btn("New session", "Start this contest again from zero (the QSOs so far stay in the log)");
             _cab = btn("Cabrillo…", "The log to send in: Cabrillo 3.0, with your categories");
@@ -480,7 +479,7 @@ namespace Kainos.Logbook.UI
             y += T.S(64);
             CheckBox on = Check("Send messages with Enter and F1 - F3", x, y, m.On);
             y += T.S(30);
-            if (m.Keyer == null) { Note("This Kainos is older than 1.0.15, so the logbook can't send messages yet.", x, y, lw + bw).ForeColor = T.Tx; y += T.S(24); }
+            if (!m.HasKeyer) { Note("This Kainos is older than 1.0.15, so the logbook can't send messages yet.", x, y, lw + bw).ForeColor = T.Tx; y += T.S(24); }
             Heading("CW", x, y); y += T.S(22);
             TextBox[] cw = new TextBox[3];
             for (int i = 0; i < 3; i++)
