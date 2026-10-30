@@ -68,6 +68,7 @@ namespace Kainos.Logbook.SelfTest
                 PotaTests.Run(root, check);
                 ContestTests.Run(root, check);
                 AwardTests.Run(root, check);
+                MessageTests.Run(root, check);
                 module(root);
                 if (online) onlineTests(root);
             }
@@ -368,6 +369,8 @@ namespace Kainos.Logbook.SelfTest
             MethodInfoHolder.Raise(f.Box, new KeyEventArgs(k));
             Application.DoEvents();
         }
+
+        internal static IEnumerable<Control> AllControls(Control c) { return Controls(c); }
 
         private static IEnumerable<Control> Controls(Control c)
         {

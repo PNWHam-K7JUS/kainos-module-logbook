@@ -2,7 +2,7 @@
 
 A module for [Kainos](https://github.com/PNWHam-K7JUS/Kainos), the Hermes Lite 2 SDR program: a logbook inside Kainos, in the Kainos look. Install it from **Setup > Modules** if you want it. It needs **Kainos 1.0.12** or later.
 
-Version 0.5 has all of it: the LOG page, uploads and confirmations, POTA, contests and awards.
+Version 0.6 has all of it: the LOG page, uploads and confirmations, POTA, contests (with messages sent from Enter and F1 - F3) and awards.
 
 ## Using it
 
@@ -58,7 +58,12 @@ The **CONTEST** tab takes the place of the LOG page's entry row and log while it
 - **Cabrillo…** saves the log to send in, with your categories (operator, assisted, band, power, mode, station, location, club, soapbox), remembered for next time. **EDI…** (the VHF contests) saves REG1TEST for European VHF contests.
 - **Uploads wait while the CONTEST tab is open,** and go when you leave it.
 
-The F1 / F2 / F3 hints say what to send. The logbook doesn't send them itself yet: a module can't start the voice keyer or Kainos's CW memories.
+**Sending the messages** (Kainos 1.0.15 or later; off until you switch it on in **Messages…**):
+
+- **Enter** with no call sends CQ (F1). On a call, it sends their call and your exchange (F2) and waits for theirs, even if it's filled in already. The next Enter sends TU (F3) and logs. **F1, F2 and F3** send their messages by themselves. **Esc** stops what's going out (a second Esc clears).
+- **In CW** they go through Kainos's keyer (CWX), as the CW terminal sends: `CQ TEST {MYCALL} {MYCALL} TEST`, `{CALL} {EXCH}`, `TU {MYCALL}` unless you change them. {EXCH} is what you send in this contest, with the serial number.
+- **On phone** the Voice Keyer module (0.3 or later) sends its slots F1, F2 and F3 (or the ones you pick). Record CQ, your exchange and TU there. Its pane needn't be open. Their call is yours to say.
+- **Nothing is sent in the digital modes.** If something can't be sent (no Voice Keyer, the radio off, not in a CW mode), the status line says why.
 
 ## Awards
 

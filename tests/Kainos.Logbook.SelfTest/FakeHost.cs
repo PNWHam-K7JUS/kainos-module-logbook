@@ -14,7 +14,7 @@ using Kainos.Modules;
 
 namespace Kainos.Logbook.SelfTest
 {
-    internal class FakeHost : IKainosHost, IKainosRadio, IKainosAudio, IKainosDock
+    internal class FakeHost : IKainosHost, IKainosRadio, IKainosAudio, IKainosDock, IKainosKeyer
     {
         public readonly Dictionary<string, string> Settings = new Dictionary<string, string>();
         public readonly List<string> LogLines = new List<string>();
@@ -55,6 +55,18 @@ namespace Kainos.Logbook.SelfTest
         public string Mode(int rx) { return ModeName; }
         public void SetMode(int rx, string mode) { ModeName = mode; }
         public void SetMox(bool on) { throw new InvalidOperationException("the logbook must never key the radio"); }
+
+        // the keyer (Kainos 1.0.15): what would have been sent is only recorded
+        public readonly List<string> CwSent = new List<string>();
+        public readonly List<string> Published = new List<string>();
+        public bool CwBusy;
+        public int CwStops;
+        public int Listeners = 1;       // as if the Voice Keyer module is listening
+        public string SendCw(string text) { CwSent.Add(text); CwBusy = true; return null; }
+        public bool CwSending { get { return CwBusy; } }
+        public void StopCw() { CwStops++; CwBusy = false; }
+        public int Publish(string topic, string message) { Published.Add(topic + " " + message); return topic == "dvk.status" ? 0 : Listeners; }
+        public void Subscribe(string topic, Action<string> handler) { }
 
         public bool AcquireRx(int rx, Action released, out string problem) { problem = null; return true; }
         public void ReleaseRx() { }

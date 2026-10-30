@@ -31,7 +31,9 @@ namespace Kainos.Logbook.UI
         private readonly Book _book;
         private readonly IKainosTheme _t;
         private readonly ComboBox _pick;
-        private readonly KButton _mine, _newSession, _cab, _edi, _logBtn;
+        private readonly KButton _mine, _messages, _newSession, _cab, _edi, _logBtn;
+        private readonly Messages _msg;
+        private string _f2For;          // the call F2 was sent to (Enter sends it once per call)
         private readonly Label _info, _esm;
         private readonly Panel _entry;
         private readonly ChipStrip _flags;
@@ -60,6 +62,11 @@ namespace Kainos.Logbook.UI
             _pick.SelectedIndexChanged += (s, e) => { _c.Current = _c.Defs[_pick.SelectedIndex]; build(); refresh(); };
             Controls.Add(_pick);
             Func<string, string, KButton> btn = (text, tt) => { KButton b = new KButton(_t, text); tip.SetToolTip(b, tt); Controls.Add(b); return b; };
+            _msg = new Messages(c);
+            _messages = btn("Messages…", "Send CQ / the exchange / TU with Enter and F1 - F3: CW through Kainos's keyer, phone through the Voice Keyer module");
+            _messages.Click += (s, e) => { using (MessagesForm f = new MessagesForm(_msg)) f.ShowDialog(FindForm()); check(); };
+            IKainosKeyer keyer = _book.Host as IKainosKeyer;
+            if (keyer != null) keyer.Subscribe("dvk.status", m => Status?.Invoke("Voice keyer: " + m));
             _mine = btn("My exchange…", "What you send: section, state, name, class, county ... (zones and grid come from your call and grid)");
             _newSession = btn("New session", "Start this contest again from zero (the QSOs so far stay in the log)");
             _cab = btn("Cabrillo…", "The log to send in: Cabrillo 3.0, with your categories");
@@ -141,6 +148,7 @@ namespace Kainos.Logbook.UI
             _cab.SetBounds(bx - _t.S(84), y, _t.S(84), bh); bx -= _t.S(90);
             _newSession.SetBounds(bx - _t.S(96), y, _t.S(96), bh); bx -= _t.S(102);
             _mine.SetBounds(bx - _t.S(106), y, _t.S(106), bh); bx -= _t.S(112);
+            _messages.SetBounds(bx - _t.S(90), y, _t.S(90), bh); bx -= _t.S(96);
             _pick.SetBounds(0, y + 1, Math.Min(_t.S(340), bx - gap), bh);
             y += bh + _t.S(4);
             _info.SetBounds(0, y, w, _t.S(34)); y += _t.S(36);
@@ -240,7 +248,9 @@ namespace Kainos.Logbook.UI
                 chips.Add(Tuple.Create(ci.Name + " · " + ci.Cont + " · CQ " + ci.Cq, _t.Faint));
             }
             _flags.Set(chips);
-            _esm.Text = call.Length == 0 ? "Enter: call CQ (F1)" : !complete ? "Enter: send " + call + " and your exchange (F2), then fill in theirs · Space: to the exchange" : "Enter: TU (F3) and log";
+            string verb = _msg.On ? "sends" : "is time for";
+            _esm.Text = (call.Length == 0 ? "Enter " + verb + " CQ (F1)" : !complete ? "Enter " + verb + " " + call + " and your exchange (F2), then fill in theirs · Space: to the exchange" : "Enter " + (_msg.On ? "sends TU (F3) and logs" : "logs (TU, F3)"))
+                + (_msg.On ? " · Esc stops" : " · messages off (Messages…)");
         }
 
         private Dictionary<string, string> values() { return _fields.ToDictionary(f => f.Item1, f => f.Item2.Text.Trim().ToUpperInvariant()); }
@@ -248,7 +258,15 @@ namespace Kainos.Logbook.UI
         private void key(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; enter(false); }
-            else if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; clear(); }
+            else if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; if (_msg.Stop()) Status?.Invoke("Stopped sending"); else clear(); }
+            else if (e.KeyCode >= Keys.F1 && e.KeyCode <= Keys.F3 && e.Modifiers == Keys.None)
+            {
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+                int f = e.KeyCode - Keys.F1 + 1;
+                Status?.Invoke(_msg.Send(f, _call.Text.Trim(), _session.Count + 1));
+                if (f == 2) _f2For = _call.Text.Trim().ToUpperInvariant();
+            }
             else if (e.KeyCode == Keys.Space && sender == _call.Box) { e.SuppressKeyPress = true; firstMissing().Focus(); }
         }
 
@@ -261,25 +279,43 @@ namespace Kainos.Logbook.UI
         private void enter(bool button)
         {
             string call = _call.Text.Trim().ToUpperInvariant();
-            if (call.Length == 0) { Status?.Invoke("CQ (F1)"); _call.Box.Focus(); return; }
+            if (call.Length == 0) { Status?.Invoke(_msg.On ? _msg.Send(1, "", _session.Count + 1) : "CQ (F1)"); _call.Box.Focus(); return; }
+            // with messages on, the first Enter for a call sends their call and your exchange and waits for theirs (even
+            // if it's filled in already: the guesses may be wrong); the next sends TU and logs, as contest loggers do
+            if (_msg.On && _f2For != call && call.Length >= 3)
+            {
+                _f2For = call;
+                Status?.Invoke(_msg.Send(2, call, _session.Count + 1));
+                TextBox nb = firstMissing();
+                nb.Focus(); nb.SelectAll();
+                return;
+            }
             if (!complete)
             {
-                if (!button) Status?.Invoke(call + " " + _c.SentText(_session.Count + 1) + " (F2)");
+                // their call and your exchange, once per call (a second Enter just moves to what's missing)
+                if (_f2For != call)
+                {
+                    _f2For = call;
+                    if (_msg.On) Status?.Invoke(_msg.Send(2, call, _session.Count + 1));
+                    else if (!button) Status?.Invoke(call + " " + _c.SentText(_session.Count + 1) + " (F2)");
+                }
                 TextBox b = call.Length < 3 ? _call.Box : firstMissing();
                 b.Focus(); b.SelectAll();
                 return;
             }
             Qso q = _c.Make(call, values(), _session.Count + 1);
+            string tu = _msg.On ? _msg.Send(3, call, _session.Count + 1) : null;
             if (_started.HasValue) { q.TimeOn = _started.Value; q.Set("TIME_OFF", DateTime.UtcNow.ToString("HHmmss", CultureInfo.InvariantCulture)); }
             bool dupe = _c.Dupe(_session, call, band, mode) != null;
             try { _book.Store.Add(q); }
             catch (Exception ex) { Status?.Invoke("Couldn't save the log: " + ex.Message); return; }
-            Status?.Invoke("TU (F3) · logged " + call + " " + q.Get("SRX_STRING") + (dupe ? " (a dupe: 0 points)" : ""));
+            Status?.Invoke((tu ?? "TU (F3)") + " · logged " + call + " " + q.Get("SRX_STRING") + (dupe ? " (a dupe: 0 points)" : ""));
             clear();
         }
 
         private void clear()
         {
+            _f2For = null;
             _typed.Clear();
             _call.Text = "";
             foreach (Tuple<string, Field> f in _fields) f.Item2.Text = "";
@@ -431,6 +467,52 @@ namespace Kainos.Logbook.UI
                 using (Font mf = new Font("Consolas", _t.S(11), FontStyle.Regular, GraphicsUnit.Pixel))
                     TextRenderer.DrawText(g, _needed.Count == 0 ? "All of them!" : string.Join(" ", _needed), mf, new Rectangle(pad, y, w, Height - y - pad), _t.Gold, TextFormatFlags.WordBreak);
             }
+        }
+    }
+
+    // the messages: on or off, the CW text for F1 - F3, the voice keyer's slots
+    internal class MessagesForm : KDialog
+    {
+        public MessagesForm(Messages m) : base(m.Theme, "Contest messages")
+        {
+            int x = T.S(16), y = T.S(14), lw = T.S(90), bw = T.S(380);
+            Note("Enter and F1 - F3 on the CONTEST page send these, as contest loggers do: F1 CQ, F2 their call and your exchange, F3 TU. Esc stops. In CW they go through Kainos's keyer (CWX, like the CW terminal); on phone the Voice Keyer module sends its slots; nothing is sent in the digital modes.", x, y, lw + bw);
+            y += T.S(64);
+            CheckBox on = Check("Send messages with Enter and F1 - F3", x, y, m.On);
+            y += T.S(30);
+            if (m.Keyer == null) { Note("This Kainos is older than 1.0.15, so the logbook can't send messages yet.", x, y, lw + bw).ForeColor = T.Tx; y += T.S(24); }
+            Heading("CW", x, y); y += T.S(22);
+            TextBox[] cw = new TextBox[3];
+            for (int i = 0; i < 3; i++)
+            {
+                Controls.Add(new Label { Text = "F" + (i + 1) + (i == 0 ? " CQ" : i == 1 ? " exchange" : " TU"), Location = new Point(x, y + 3), Size = new Size(lw, T.S(20)), ForeColor = T.Dim });
+                cw[i] = Box(x + lw, y, bw);
+                cw[i].CharacterCasing = CharacterCasing.Upper;
+                cw[i].Text = m.Cw(i + 1);
+                y += T.S(28);
+            }
+            Note("{MYCALL} your call, {CALL} theirs, {EXCH} what you send in this contest (with the serial number).", x + lw, y, bw);
+            y += T.S(34);
+            Heading("Phone: Voice Keyer slots", x, y); y += T.S(22);
+            ComboBox[] slots = new ComboBox[3];
+            for (int i = 0; i < 3; i++)
+            {
+                Controls.Add(new Label { Text = "F" + (i + 1), Location = new Point(x + i * T.S(130), y + 3), Size = new Size(T.S(28), T.S(20)), ForeColor = T.Dim });
+                slots[i] = Combo(x + i * T.S(130) + T.S(30), y, T.S(80), Enumerable.Range(1, 12).Select(n => "slot F" + n).ToArray());
+                slots[i].SelectedIndex = m.Slot(i + 1) - 1;
+            }
+            y += T.S(34);
+            Note("Record them in the Voice Keyer (Tools > Voice Keyer): CQ, your exchange, TU. Their call is yours to say.", x, y, lw + bw);
+            y += T.S(36);
+            Button("Save", x + lw + bw - T.S(200), y, T.S(96), () =>
+            {
+                m.On = on.Checked;
+                for (int i = 0; i < 3; i++) { m.SetCw(i + 1, cw[i].Text.Trim()); m.SetSlot(i + 1, slots[i].SelectedIndex + 1); }
+                DialogResult = DialogResult.OK;
+                Close();
+            });
+            Button("Cancel", x + lw + bw - T.S(96), y, T.S(96), Close);
+            ClientSize = new Size(x * 2 + lw + bw, y + T.S(44));
         }
     }
 
