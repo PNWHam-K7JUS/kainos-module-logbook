@@ -2,7 +2,7 @@
 
 A module for [Kainos](https://github.com/PNWHam-K7JUS/Kainos), the Hermes Lite 2 SDR program: a logbook inside Kainos, in the Kainos look. Install it from **Setup > Modules** if you want it. It needs **Kainos 1.0.12** or later.
 
-This is version 0.2: the LOG page and uploads. POTA, contests and awards are coming in the versions after it.
+This is version 0.3: the LOG page, uploads and POTA. Contests and awards are coming in the versions after it.
 
 ## Using it
 
@@ -35,6 +35,16 @@ Open it with the **LOG** button in the left-hand dock (lit while it's open), or 
 
 LoTW and eQSL keep what's sent to them (LoTW can't delete a QSO), so an edit there isn't sent again.
 
+## POTA
+
+The **POTA** tab, next to LOG, keeps the entry row and shows Parks on the Air in place of the log:
+
+- **Hunting:** the activators on the air now, from pota.app, refreshed every minute while the page is open. Filter by CW, SSB or digital and by band, and hide the ones you've already logged today. **NEW PARK** marks a park you've never worked. **Double-click a spot** (or press Enter on it) to tune VFO A to it in its mode (SSB as LSB below 10 MHz, USB above; CW; digital as DIGU) and fill in the call and park. Logged, it's a hunter QSO (SIG POTA). Hunters needn't upload: pota.app credits you from the activator's log.
+- **Their park**, typed on either page, shows the park's name on the lookup card.
+- **Activating:** enter your park (two or more for a two-fer) and your grid there, and press **Start activation**. Until you press **End activation**, every QSO you log (here, and from the FT8 and SSTV modules) gets your park(s) and grid: MY_SIG POTA, MY_SIG_INFO, MY_POTA_REF, MY_GRIDSQUARE. The bar counts to the 10 QSOs that make it count, and park-to-park QSOs are counted too.
+- **Spot me…** opens a window with the spot (your call, VFO A's frequency and mode, the park, a comment). Nothing is sent until you press **Send**.
+- **Export for pota.app…** saves the activation as pota.app wants it: one file per park and UTC day, named `CALL@PARK-YYYYMMDD.adi`. Upload them at pota.app > My Logs.
+
 ## Settings
 
 - **Station:** your call, grid and power. Kainos's own call and grid are used unless you change them here.
@@ -57,6 +67,7 @@ LoTW and eQSL keep what's sent to them (LoTW can't delete a QSO), so an edit the
 | `Cty.cs` | cty.dat: prefixes, whole calls, the zone / place / continent overrides, portable calls (EA8/DL1ABC, K7JUS/4). |
 | `Lookup/` | QRZ.com XML, HamQTH and callook.info; passwords kept with DPAPI. |
 | `Feeds.cs` | QSOs from the Digital Modes and SSTV modules' ADIF logs. |
+| `Pota.cs`, `UI/PotaPage.cs` | POTA: spots and park names from api.pota.app, the activation (the park on each QSO), the files for pota.app, spotting yourself. |
 | `Services/` | The uploads: LoTW (through TQSL), eQSL, QRZ Logbook and Club Log; what's waiting, sending and retrying, and confirmations matched to the log. |
 | `UI/` | The pane, the lookup card (drawn), the log table, and the settings, edit and export windows. |
 
@@ -66,7 +77,7 @@ LoTW and eQSL keep what's sent to them (LoTW can't delete a QSO), so an edit the
 .\build.ps1
 ```
 
-It builds the module and its self-test against `Kainos.ModuleApi.dll` from a Kainos build next to this folder (or `-KainosBin <folder>`), runs the self-test (ADIF, cty.dat, grids and headings, the log file, worked-before, the FT8 feed, the exports, uploads and confirmations against stand-ins for every service and for TQSL (a little web server on this PC, so nothing reaches a real log), and the pane and the Uploads window, drawn to PNGs), and writes `dist\kainos-logbook-<version>.zip` and `dist\registry-entry.json`. `Kainos.Logbook.SelfTest.exe --online` also downloads cty.dat and looks up W1AW on callook.info.
+It builds the module and its self-test against `Kainos.ModuleApi.dll` from a Kainos build next to this folder (or `-KainosBin <folder>`), runs the self-test (ADIF, cty.dat, grids and headings, the log file, worked-before, the FT8 feed, the exports, POTA (spots, activations, the files, spotting) and uploads and confirmations against stand-ins for every service and for TQSL (a little web server on this PC, so nothing reaches a real log), and the pane and the Uploads window, drawn to PNGs), and writes `dist\kainos-logbook-<version>.zip` and `dist\registry-entry.json`. `Kainos.Logbook.SelfTest.exe --online` also downloads cty.dat and looks up W1AW on callook.info.
 
 ## Licence
 

@@ -32,6 +32,7 @@ namespace Kainos.Logbook.UI
         public string Band = "";
         public ModeClass Class;
         public string Problem = "";
+        public string Park = "";       // their park, when one is typed: "US-1234 · name, where"
 
         public LookupCard(IKainosTheme t, Book book)
         {
@@ -78,6 +79,12 @@ namespace Kainos.Logbook.UI
             using (Font f = _t.Font(_t.S(14), true))
                 TextRenderer.DrawText(g, title, f, new Rectangle(pad, y, textW, _t.S(20)), _t.Text, TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
             y += _t.S(20);
+            if (Park.Length > 0)
+            {
+                using (Font f = _t.Font(_t.S(12), true))
+                    TextRenderer.DrawText(g, "PARK " + Park, f, new Rectangle(pad, y, textW, _t.S(18)), Draw.Ok, TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+                y += _t.S(18);
+            }
             if (Info != null && Info.Qth.Length > 0)
             {
                 using (Font f = _t.Font(_t.S(12), false))

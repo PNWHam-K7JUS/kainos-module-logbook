@@ -1,8 +1,8 @@
 {
   "id": "logbook",
   "name": "Logbook",
-  "description": "A logbook in the Kainos look: callsign lookup as you type (country, zones, beam heading, QRZ / HamQTH / callook), worked-before by band and mode, QSOs from VFO A and from the FT8 and SSTV modules, ADIF import and export. Uploads to LoTW (through TQSL), eQSL, QRZ Logbook and Club Log, with confirmations brought back.",
-  "version": "0.2.0",
+  "description": "A logbook in the Kainos look: callsign lookup as you type (country, zones, beam heading, QRZ / HamQTH / callook), worked-before by band and mode, QSOs from VFO A and from the FT8 and SSTV modules, ADIF import and export. Uploads to LoTW (through TQSL), eQSL, QRZ Logbook and Club Log, with confirmations brought back. POTA: activators on the air (click to tune), activations with the files pota.app wants, and spotting yourself.",
+  "version": "0.3.0",
   "api": 1,
   "minKainos": "1.0.12",
   "entry": "Kainos.Logbook.dll",

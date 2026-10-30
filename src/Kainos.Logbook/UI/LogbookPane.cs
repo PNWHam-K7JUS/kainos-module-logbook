@@ -31,8 +31,12 @@ namespace Kainos.Logbook.UI
         private readonly Book _book;
         private readonly Feeds _feeds;
         private readonly Uploader _up;
+        private readonly Pota _pota;
+        private readonly PotaPage _potaPage;
+        private string _page = "log";
+        private int _parkSeq;
         private readonly IKainosTheme _t;
-        private readonly KButton _tabLog, _import, _export, _uploads, _settings, _pop, _logBtn;
+        private readonly KButton _tabLog, _tabPota, _import, _export, _uploads, _settings, _pop, _logBtn;
         private readonly Label _status, _auto;
         private readonly Field _call, _sent, _rcvd, _name, _park, _comment;
         private readonly FlagStrip _flags;
@@ -49,11 +53,12 @@ namespace Kainos.Logbook.UI
 
         public event Action PopToggled;
 
-        public LogbookPane(Book book, Feeds feeds, Uploader up)
+        public LogbookPane(Book book, Feeds feeds, Uploader up, Pota pota)
         {
             _book = book;
             _feeds = feeds;
             _up = up;
+            _pota = pota;
             _t = book.Host.Theme;
             BackColor = _t.Bg;
             DoubleBuffered = true;
@@ -69,6 +74,7 @@ namespace Kainos.Logbook.UI
             };
             _tabLog = btn("LOG", "The log and the lookup");
             _tabLog.On = true;
+            _tabPota = btn("POTA", "Parks on the Air: activators on the air now (double-click to tune), and your own activations");
             _import = btn("Import…", "Bring QSOs in from an ADIF file (another logger, LoTW, QRZ). QSOs already in the log are skipped.");
             _export = btn("Export…", "Save the log as ADIF, ADX or CSV");
             _uploads = btn("Uploads…", "LoTW, eQSL, QRZ Logbook and Club Log: switch them on, see what's waiting, preview, send, get confirmations");
@@ -95,6 +101,12 @@ namespace Kainos.Logbook.UI
             Controls.Add(_grid);
             _card = new LookupCard(_t, book);
             Controls.Add(_card);
+            _potaPage = new PotaPage(book, pota) { Visible = false };
+            Controls.Add(_potaPage);
+            _potaPage.SpotChosen += tuneTo;
+            _tabLog.Click += (s, e) => page("log");
+            _tabPota.Click += (s, e) => page("pota");
+            _park.Box.TextChanged += (s, e) => parkChanged();
 
             _import.Click += (s, e) => import();
             _export.Click += (s, e) => { using (ExportForm f = new ExportForm(_book)) f.ShowDialog(FindForm()); };
@@ -142,6 +154,7 @@ namespace Kainos.Logbook.UI
             {
                 _running = value;
                 _tick.Enabled = value;
+                _potaPage.Showing = value && _page == "pota";
                 if (value) { tick(); Task.Run(() => _feeds.Poll()); }
             }
         }
@@ -156,6 +169,7 @@ namespace Kainos.Logbook.UI
             int pad = _t.S(6), y = pad, w = ClientSize.Width - 2 * pad, bh = _t.S(24);
             int x = pad;
             _tabLog.SetBounds(x, y, _t.S(54), bh); x += _t.S(60);
+            _tabPota.SetBounds(x, y, _t.S(60), bh); x += _t.S(66);
             int right = pad + w;
             _pop.SetBounds(right - _t.S(70), y, _t.S(70), bh); right -= _t.S(76);
             _settings.SetBounds(right - _t.S(78), y, _t.S(78), bh); right -= _t.S(84);
@@ -187,6 +201,51 @@ namespace Kainos.Logbook.UI
             int h = Math.Max(_t.S(60), ClientSize.Height - y - pad);
             _grid.SetBounds(pad, y, w - cardW - gap, h);
             _card.SetBounds(pad + w - cardW, y, cardW, h);
+            _potaPage.SetBounds(pad, y, w, h);
+        }
+
+        // ---- pages: LOG (the log and the lookup) or POTA (spots and activating), under the same entry row ----
+        private void page(string p)
+        {
+            _page = p;
+            _tabLog.On = p == "log";
+            _tabPota.On = p == "pota";
+            _grid.Visible = _card.Visible = p == "log";
+            _potaPage.Visible = p == "pota";
+            _potaPage.Showing = _running && p == "pota";
+            _book.Host.SetSetting("page", p);
+        }
+
+        public void RestorePage() { page(_book.Host.GetSetting("page", "log")); }
+
+        // a spot double-clicked: VFO A to it, in its mode, with the call and park filled in
+        private void tuneTo(PotaSpot sp)
+        {
+            IKainosRadio r = _book.Host.Radio;
+            int rx = r.TxReceiver;
+            r.SetMode(rx, Pota.KainosMode(sp));
+            r.TuneVfo(rx, sp.Khz * 1000.0);
+            tick();                 // the new band and mode first, so the reports suit them
+            resetReports();
+            _call.Text = sp.Activator;
+            _park.Text = sp.Reference;
+            status("Tuned to " + sp.Activator + " at " + sp.Reference + " (" + sp.ParkName + "), " + sp.Khz.ToString("0.0", CultureInfo.InvariantCulture) + " kHz " + sp.Mode);
+            _call.Box.Focus();
+        }
+
+        private async void parkChanged()
+        {
+            string p = _park.Text.Trim().ToUpperInvariant();
+            int seq = ++_parkSeq;
+            PotaPark known = _pota.Known(p);
+            if (!Pota.RefRx.IsMatch(p)) { _card.Park = ""; _card.Invalidate(); return; }
+            _card.Park = p + (known != null && known.Name.Length > 0 ? " · " + known.Name : "");
+            _card.Invalidate();
+            if (known != null && known.Name.Length > 0) return;
+            PotaPark got = null;
+            try { got = await _pota.ParkAsync(p); } catch { }
+            if (seq != _parkSeq || IsDisposed) return;
+            if (got != null) { _card.Park = p + " · " + got.Name + (got.Location.Length > 0 ? ", " + got.Location : ""); _card.Invalidate(); }
         }
 
         // ---- the radio, the lookup ----
@@ -201,7 +260,8 @@ namespace Kainos.Logbook.UI
             DateTime now = DateTime.UtcNow;
             _auto.Text = (_started.HasValue ? "started " + _started.Value.ToString("HH:mm", CultureInfo.InvariantCulture) + "  " : "UTC " + now.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + "  ")
                 + mhz.ToString("0.000000", CultureInfo.InvariantCulture) + " MHz  " + (band.Length > 0 ? band : "out of band") + "  " + shown
-                + "  " + _book.MyPower + " W  " + _book.MyGrid;
+                + "  " + _book.MyPower + " W  " + (_pota.Active && _pota.ActivationGrid.Length > 0 ? _pota.ActivationGrid : _book.MyGrid)
+                + (_pota.Active ? "  POTA " + string.Join("+", _pota.Parks) : "");
             ModeClass cls = Bands.ClassOf(shown);
             if (band != _lastBand || shown != _lastMode)
             {
@@ -286,6 +346,7 @@ namespace Kainos.Logbook.UI
             }
             Qso q = _book.NewFromRadio();
             q.LoggedHere = true;
+            _pota.Apply(q);
             if (_started.HasValue) { q.TimeOn = _started.Value; q.Set("TIME_OFF", DateTime.UtcNow.ToString("HHmmss", CultureInfo.InvariantCulture)); q.Set("QSO_DATE_OFF", DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture)); }
             q.Call = call;
             q.RstSent = _sent.Text.Trim();

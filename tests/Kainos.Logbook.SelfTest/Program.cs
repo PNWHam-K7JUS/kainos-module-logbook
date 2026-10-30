@@ -65,6 +65,7 @@ namespace Kainos.Logbook.SelfTest
                 feeds(root);
                 exports();
                 UploadTests.Run(root, check);
+                PotaTests.Run(root, check);
                 module(root);
                 if (online) onlineTests(root);
             }
@@ -223,6 +224,10 @@ namespace Kainos.Logbook.SelfTest
         {
             FakeHost h = new FakeHost(Path.Combine(root, "m"));
             h.SetSetting("cty.auto", "0");      // offline: the built-in list, no download
+            List<string> posted = new List<string>();
+            FakeServer srv = new FakeServer { Handle = r => PotaTests.Serve(r, posted) ?? Tuple.Create(404, "no") };
+            h.SetSetting("svc.base", srv.Base);    // POTA spots from the stand-in
+            h.SetSetting("lookup.callook", "0");   // and no lookups
             LogbookModule m = new LogbookModule();
             m.Start(h);
             check(h.DockLabel == "LOG" && h.Panes.Count == 1, "module: a LOG dock button and a pane");
@@ -266,6 +271,30 @@ namespace Kainos.Logbook.SelfTest
                 }
                 press(call, Keys.Escape);
                 check(call.Text == "", "pane: Esc clears");
+
+                // the POTA page: spots from the stand-in, drawn; a double-click tunes to one
+                h.SetSetting("page", "pota");
+                pane.RestorePage();
+                PotaPage pp = Controls(pane).OfType<PotaPage>().First();
+                DataGridView sg = Controls(pp).OfType<DataGridView>().First();
+                System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
+                while (sg.Rows.Count == 0 && sw.ElapsedMilliseconds < 5000) { Application.DoEvents(); System.Threading.Thread.Sleep(20); }
+                check(sg.Rows.Count == 3 && (string)sg.Rows[0].Cells[1].Value == "K4ABC", "POTA page: the spots shown");
+                using (Bitmap bmp = new Bitmap(pane.Width, pane.Height))
+                {
+                    pane.DrawToBitmap(bmp, new Rectangle(0, 0, pane.Width, pane.Height));
+                    bmp.Save(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "logbook-pota.png"), ImageFormat.Png);
+                }
+                typeof(DataGridView).GetMethod("OnCellDoubleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(sg, new object[] { new DataGridViewCellEventArgs(1, 1) });
+                Application.DoEvents();
+                check(Math.Abs(h.Hz - 7062000) < 1 && h.ModeName == "CWU" && call.Text == "N7XYZ" && fields[4].Text == "US-5678", "POTA page: a double-click tunes to 7062.0 CW and fills in N7XYZ at US-5678");
+                press(call, Keys.Enter);
+                Qso hunted = Adif.Parse(File.ReadAllText(Path.Combine(h.DataFolder, "logbook.adi"))).Last();
+                check(hunted.Call == "N7XYZ" && hunted.PotaRef == "US-5678" && hunted.Get("SIG") == "POTA" && hunted.Band == "40m" && hunted.Mode == "CW" && hunted.RstSent == "599", "POTA page: logged as a hunter QSO (SIG POTA US-5678, 40 m CW, 599)");
+                check(posted.Count == 0, "POTA page: nothing posted to pota.app");
+                h.SetSetting("page", "log");
+                pane.RestorePage();
+                h.Hz = 14225000; h.ModeName = "USB";
                 Book book = new Book(h, "0.1.0");
                 book.Store.Load();
                 Kainos.Logbook.Services.Uploader upl = new Kainos.Logbook.Services.Uploader(h, book.Store, book.Http, () => "K7JUS");
@@ -289,6 +318,7 @@ namespace Kainos.Logbook.SelfTest
             }
             m.Stop();
             m.Dispose();
+            srv.Dispose();
             check(true, "module: stopped and disposed");
         }
 

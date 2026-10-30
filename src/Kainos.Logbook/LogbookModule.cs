@@ -42,10 +42,12 @@ namespace Kainos.Logbook
             try { _book.Store.Load(); }
             catch (Exception ex) { host.Log("couldn't read logbook.adi: " + ex.Message); }
             _feeds = new Feeds(host, _book.Store);
+            Pota pota = new Pota(host, _book.Http);
+            _feeds.Adjust = pota.Apply;
             _uploader = new Uploader(host, _book.Store, _book.Http, () => _book.MyCall);
             _feeds.Added += (n, from) => _uploader.Kick(true);
             _uploader.Start();
-            _view = new LogbookPane(_book, _feeds, _uploader);
+            _view = new LogbookPane(_book, _feeds, _uploader, pota);
             _pane = host.CreatePane("Kainos Logbook", _view);
             _pane.Closed += (s, e) => close();
             _view.PopToggled += () => _pane.Popped = !_pane.Popped;
@@ -63,6 +65,7 @@ namespace Kainos.Logbook
         private void open()
         {
             _pane.Open();
+            _view.RestorePage();
             _view.Running = true;
             _view.FocusCall();
             _menu.Checked = true;

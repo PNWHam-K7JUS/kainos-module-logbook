@@ -30,6 +30,7 @@ namespace Kainos.Logbook
         private readonly string _root;
 
         public event Action<int, string> Added;     // how many, from which module
+        public Action<Qso> Adjust;                  // before they're added (a POTA activation adds the park)
 
         public Feeds(IKainosHost host, LogStore store)
         {
@@ -79,7 +80,7 @@ namespace Kainos.Logbook
             }
             // the file's header is only in its first read; later reads start mid-file with a record
             List<Qso> qsos = Adif.Parse(text.IndexOf("<eoh>", StringComparison.OrdinalIgnoreCase) >= 0 ? text : "<EOH>" + text);
-            foreach (Qso q in qsos) { q.Set("APP_KAINOS_FROM", src[0]); q.LoggedHere = true; }
+            foreach (Qso q in qsos) { q.Set("APP_KAINOS_FROM", src[0]); q.LoggedHere = true; Adjust?.Invoke(q); }
             int added = _store.AddMany(qsos);
             _host.SetSetting(key, pos.ToString(CultureInfo.InvariantCulture));
             if (added > 0) { _host.Log("feed " + src[0] + ": " + added + " QSO(s) added"); Added?.Invoke(added, src[2]); }
