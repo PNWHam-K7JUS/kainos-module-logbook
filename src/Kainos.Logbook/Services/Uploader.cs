@@ -40,6 +40,7 @@ namespace Kainos.Logbook.Services
         private Timer _timer;
 
         public event Action<string> Status;         // "LoTW: 3 QSOs uploaded"
+        public volatile bool Paused;                // the CONTEST page is open: nothing goes by itself until it's closed
         public event Action Changed;                // counts or states changed
 
         public Uploader(IKainosHost host, LogStore store, HttpClient http, Func<string> myCall)
@@ -76,7 +77,7 @@ namespace Kainos.Logbook.Services
                 {
                     if (only != null && s != only) continue;
                     if (!s.Enabled) continue;
-                    if (only == null && !s.Auto) continue;
+                    if (only == null && (!s.Auto || Paused)) continue;
                     ServiceState st = _state[s.Key];
                     if (only == null && (st.LoginRefused || DateTime.UtcNow < st.RetryAt)) continue;
                     if (!s.HasLogin) { if (only != null) note(s, "not set up yet"); continue; }

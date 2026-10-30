@@ -2,7 +2,7 @@
 
 A module for [Kainos](https://github.com/PNWHam-K7JUS/Kainos), the Hermes Lite 2 SDR program: a logbook inside Kainos, in the Kainos look. Install it from **Setup > Modules** if you want it. It needs **Kainos 1.0.12** or later.
 
-This is version 0.3: the LOG page, uploads and POTA. Contests and awards are coming in the versions after it.
+This is version 0.4: the LOG page, uploads, POTA and contests. Awards are coming next.
 
 ## Using it
 
@@ -45,6 +45,21 @@ The **POTA** tab, next to LOG, keeps the entry row and shows Parks on the Air in
 - **Spot me…** opens a window with the spot (your call, VFO A's frequency and mode, the park, a comment). Nothing is sent until you press **Send**.
 - **Export for pota.app…** saves the activation as pota.app wants it: one file per park and UTC day, named `CALL@PARK-YYYYMMDD.adi`. Upload them at pota.app > My Logs.
 
+## Contests
+
+The **CONTEST** tab takes the place of the LOG page's entry row and log while it's open.
+
+- **37 contests:** CQ WW (SSB, CW, RTTY), CQ WPX (SSB, CW, RTTY), ARRL DX (CW, SSB), Sweepstakes (CW, SSB), Field Day, Winter Field Day, ARRL 10 m and 160 m, RTTY Roundup, ARRL Digital, CQ WW Digi, NAQP (CW, SSB, RTTY), NA Sprint, IARU, CQ 160, the ARRL January / June / September VHF, Stew Perry, CWops CWT, K1USN SST, the Washington Salmon Run (a state QSO party), WAE, All Asian, JIDX, Russian DX, RAC Winter, EU HF and OK/OM DX. Pick one and it shows when it runs, its modes, what you send, and anything to know (who works whom).
+- **The entry row has that contest's exchange.** The RST and their zones are filled in from the call. A field that isn't right turns red. **Enter** works as in contest loggers: no call, it's CQ time (F1); a call but the exchange not complete, it moves to what's missing (F2); all there, it logs (F3, TU). **Space** in the call jumps to the exchange. **Esc** clears.
+- **Alerts:** **DUPE** (by the contest's rule: per band, per band and mode, or once), **NEW MULT** with which, the points the QSO is worth, and the country and zone.
+- **The score**, claimed before the sponsor's checking: QSOs, points, mults and score, the rate (over the last 10 QSOs, and in the last hour), each band's QSOs by mode and mults, and the mults still to work where they're a fixed list (CQ zones on the band you're on, ARRL sections, states and provinces).
+- **My exchange…** is what you send: section, state, name, Field Day class, check and precedence, county, CWops number, age, year licensed. Your zones and grid come from your call and grid unless you set them.
+- **New session** starts the contest again from zero. Every contest QSO is also in the main log, with CONTEST_ID and the exchange in STX_STRING / SRX_STRING and the usual ADIF fields (SRX, STX, ARRL_SECT, CLASS, PRECEDENCE, CHECK, CQZ ...).
+- **Cabrillo…** saves the log to send in, with your categories (operator, assisted, band, power, mode, station, location, club, soapbox), remembered for next time. **EDI…** (the VHF contests) saves REG1TEST for European VHF contests.
+- **Uploads wait while the CONTEST tab is open,** and go when you leave it.
+
+The F1 / F2 / F3 hints say what to send. The logbook doesn't send them itself yet: a module can't start the voice keyer or Kainos's CW memories.
+
 ## Settings
 
 - **Station:** your call, grid and power. Kainos's own call and grid are used unless you change them here.
@@ -68,6 +83,7 @@ The **POTA** tab, next to LOG, keeps the entry row and shows Parks on the Air in
 | `Lookup/` | QRZ.com XML, HamQTH and callook.info; passwords kept with DPAPI. |
 | `Feeds.cs` | QSOs from the Digital Modes and SSTV modules' ADIF logs. |
 | `Pota.cs`, `UI/PotaPage.cs` | POTA: spots and park names from api.pota.app, the activation (the park on each QSO), the files for pota.app, spotting yourself. |
+| `Contest/`, `UI/ContestPage.cs` | Contests: the 37 definitions, exchange checking, dupes, scoring, Cabrillo and EDI; the CONTEST page. |
 | `Services/` | The uploads: LoTW (through TQSL), eQSL, QRZ Logbook and Club Log; what's waiting, sending and retrying, and confirmations matched to the log. |
 | `UI/` | The pane, the lookup card (drawn), the log table, and the settings, edit and export windows. |
 
@@ -77,7 +93,7 @@ The **POTA** tab, next to LOG, keeps the entry row and shows Parks on the Air in
 .\build.ps1
 ```
 
-It builds the module and its self-test against `Kainos.ModuleApi.dll` from a Kainos build next to this folder (or `-KainosBin <folder>`), runs the self-test (ADIF, cty.dat, grids and headings, the log file, worked-before, the FT8 feed, the exports, POTA (spots, activations, the files, spotting) and uploads and confirmations against stand-ins for every service and for TQSL (a little web server on this PC, so nothing reaches a real log), and the pane and the Uploads window, drawn to PNGs), and writes `dist\kainos-logbook-<version>.zip` and `dist\registry-entry.json`. `Kainos.Logbook.SelfTest.exe --online` also downloads cty.dat and looks up W1AW on callook.info.
+It builds the module and its self-test against `Kainos.ModuleApi.dll` from a Kainos build next to this folder (or `-KainosBin <folder>`), runs the self-test (ADIF, cty.dat, grids and headings, the log file, worked-before, the FT8 feed, the exports, contests (scoring worked by hand for CQ WW, Sweepstakes and Field Day; Cabrillo; EDI), POTA (spots, activations, the files, spotting) and uploads and confirmations against stand-ins for every service and for TQSL (a little web server on this PC, so nothing reaches a real log), and the pane and the Uploads window, drawn to PNGs), and writes `dist\kainos-logbook-<version>.zip` and `dist\registry-entry.json`. `Kainos.Logbook.SelfTest.exe --online` also downloads cty.dat and looks up W1AW on callook.info.
 
 ## Licence
 

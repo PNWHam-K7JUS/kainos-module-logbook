@@ -166,6 +166,17 @@ namespace Kainos.Logbook
             {
                 double[] a = UsArea(r.CallArea);
                 if (a != null) { r.Lat = a[0]; r.Lon = a[1]; }
+                // and its CQ / ITU zones (cty.dat gives the whole US zone 5 unless the call is listed): a guess, as
+                // people move; a contest's exchange or your own settings say for sure
+                if (o == null || o.Cq == 0)
+                {
+                    switch (r.CallArea)
+                    {
+                        case "6": case "7": r.Cq = 3; r.Itu = 6; break;
+                        case "5": case "0": r.Cq = 4; r.Itu = 7; break;
+                        case "8": case "9": r.Cq = 4; r.Itu = 8; break;
+                    }
+                }
             }
             return r;
         }

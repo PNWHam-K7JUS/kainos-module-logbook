@@ -66,6 +66,7 @@ namespace Kainos.Logbook.SelfTest
                 exports();
                 UploadTests.Run(root, check);
                 PotaTests.Run(root, check);
+                ContestTests.Run(root, check);
                 module(root);
                 if (online) onlineTests(root);
             }
@@ -292,8 +293,36 @@ namespace Kainos.Logbook.SelfTest
                 Qso hunted = Adif.Parse(File.ReadAllText(Path.Combine(h.DataFolder, "logbook.adi"))).Last();
                 check(hunted.Call == "N7XYZ" && hunted.PotaRef == "US-5678" && hunted.Get("SIG") == "POTA" && hunted.Band == "40m" && hunted.Mode == "CW" && hunted.RstSent == "599", "POTA page: logged as a hunter QSO (SIG POTA US-5678, 40 m CW, 599)");
                 check(posted.Count == 0, "POTA page: nothing posted to pota.app");
+                // the CONTEST page: CQ WW SSB, DL1ABC with 59 and zone 14 filled in, Enter logs it
+                h.Hz = 14225000; h.ModeName = "USB";
+                h.SetSetting("page", "contest");
+                pane.RestorePage();
+                ContestPage cp = Controls(pane).OfType<ContestPage>().First();
+                List<Field> cf = Controls(cp).OfType<Field>().ToList();
+                check(cp.Visible && !call.Visible && cf.Count == 3, "CONTEST page: shown in place of the LOG entry row, with call, RST and zone");
+                cf[0].Text = "DL1ABC";
+                Application.DoEvents();
+                check(cf[1].Text == "59" && cf[2].Text == "14", "CONTEST page: 59 and zone 14 filled in from the call");
+                press(cf[0], Keys.Enter);
+                Qso cq = Adif.Parse(File.ReadAllText(Path.Combine(h.DataFolder, "logbook.adi"))).Last();
+                check(cq.Call == "DL1ABC" && cq.Get("CONTEST_ID") == "CQ-WW-SSB" && cq.Get("SRX_STRING") == "59 14" && cf[0].Text == "", "CONTEST page: Enter logged DL1ABC (CQ-WW-SSB, 59 14) and cleared");
+                cf[0].Text = "JA1ABC";
+                cf[2].Text = "";
+                press(cf[0], Keys.Enter);
+                check(cf[0].Text == "JA1ABC", "CONTEST page: with the zone missing, Enter doesn't log");
+                cf[2].Text = "25";
+                press(cf[2], Keys.Enter);
+                cf[0].Text = "DL1ABC";
+                Application.DoEvents();
+                using (Bitmap bmp = new Bitmap(pane.Width, pane.Height))
+                {
+                    pane.DrawToBitmap(bmp, new Rectangle(0, 0, pane.Width, pane.Height));
+                    bmp.Save(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "logbook-contest.png"), ImageFormat.Png);
+                }
+                press(cf[0], Keys.Escape);
                 h.SetSetting("page", "log");
                 pane.RestorePage();
+                check(call.Visible, "CONTEST page: back on LOG, its entry row is back");
                 h.Hz = 14225000; h.ModeName = "USB";
                 Book book = new Book(h, "0.1.0");
                 book.Store.Load();

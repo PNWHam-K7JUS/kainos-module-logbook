@@ -18,6 +18,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Kainos.Logbook.Lookup;
+using Kainos.Logbook.Contest;
 using Kainos.Logbook.Services;
 using Kainos.Modules;
 
@@ -33,10 +34,11 @@ namespace Kainos.Logbook.UI
         private readonly Uploader _up;
         private readonly Pota _pota;
         private readonly PotaPage _potaPage;
+        private readonly ContestPage _contestPage;
         private string _page = "log";
         private int _parkSeq;
         private readonly IKainosTheme _t;
-        private readonly KButton _tabLog, _tabPota, _import, _export, _uploads, _settings, _pop, _logBtn;
+        private readonly KButton _tabLog, _tabPota, _tabContest, _import, _export, _uploads, _settings, _pop, _logBtn;
         private readonly Label _status, _auto;
         private readonly Field _call, _sent, _rcvd, _name, _park, _comment;
         private readonly FlagStrip _flags;
@@ -74,6 +76,7 @@ namespace Kainos.Logbook.UI
             };
             _tabLog = btn("LOG", "The log and the lookup");
             _tabLog.On = true;
+            _tabContest = btn("CONTEST", "Contests: the exchange, dupes, mults, the score, Cabrillo");
             _tabPota = btn("POTA", "Parks on the Air: activators on the air now (double-click to tune), and your own activations");
             _import = btn("Import…", "Bring QSOs in from an ADIF file (another logger, LoTW, QRZ). QSOs already in the log are skipped.");
             _export = btn("Export…", "Save the log as ADIF, ADX or CSV");
@@ -102,6 +105,10 @@ namespace Kainos.Logbook.UI
             _card = new LookupCard(_t, book);
             Controls.Add(_card);
             _potaPage = new PotaPage(book, pota) { Visible = false };
+            _contestPage = new ContestPage(new Contesting(book)) { Visible = false };
+            Controls.Add(_contestPage);
+            _contestPage.Status += m => status(m);
+            _tabContest.Click += (s, e) => page("contest");
             Controls.Add(_potaPage);
             _potaPage.SpotChosen += tuneTo;
             _tabLog.Click += (s, e) => page("log");
@@ -170,6 +177,7 @@ namespace Kainos.Logbook.UI
             int x = pad;
             _tabLog.SetBounds(x, y, _t.S(54), bh); x += _t.S(60);
             _tabPota.SetBounds(x, y, _t.S(60), bh); x += _t.S(66);
+            _tabContest.SetBounds(x, y, _t.S(84), bh); x += _t.S(90);
             int right = pad + w;
             _pop.SetBounds(right - _t.S(70), y, _t.S(70), bh); right -= _t.S(76);
             _settings.SetBounds(right - _t.S(78), y, _t.S(78), bh); right -= _t.S(84);
@@ -178,6 +186,7 @@ namespace Kainos.Logbook.UI
             _import.SetBounds(right - _t.S(70), y, _t.S(70), bh); right -= _t.S(76);
             _status.SetBounds(x + _t.S(4), y, Math.Max(10, right - x - _t.S(8)), bh);
             y += bh + _t.S(6);
+            _contestPage.SetBounds(pad, y, w, Math.Max(_t.S(60), ClientSize.Height - y - pad));
 
             // the entry row: call wide, the reports narrow, the rest share what's left
             int fh = _t.S(44), gap = _t.S(6);
@@ -210,6 +219,13 @@ namespace Kainos.Logbook.UI
             _page = p;
             _tabLog.On = p == "log";
             _tabPota.On = p == "pota";
+            _tabContest.On = p == "contest";
+            bool entry = p != "contest";
+            foreach (Control c in new Control[] { _call, _sent, _rcvd, _name, _park, _comment, _logBtn, _auto, _flags }) c.Visible = entry;
+            _contestPage.Visible = !entry;
+            _up.Paused = !entry;
+            if (!entry) { _contestPage.RadioChanged(); _contestPage.FocusCall(); }
+            else _up.Kick(false);
             _grid.Visible = _card.Visible = p == "log";
             _potaPage.Visible = p == "pota";
             _potaPage.Showing = _running && p == "pota";
@@ -269,6 +285,7 @@ namespace Kainos.Logbook.UI
                 _lastBand = band; _lastMode = shown; _class = cls;
                 if (classChanged && _call.Text.Trim().Length == 0) resetReports();
                 analyse();
+                if (_page == "contest") _contestPage.RadioChanged();
             }
             if (++_feedTicks >= 10) { _feedTicks = 0; Task.Run(() => _feeds.Poll()); }
         }
