@@ -2,7 +2,7 @@
 
 A module for [Kainos](https://github.com/PNWHam-K7JUS/Kainos), the Hermes Lite 2 SDR program: a logbook inside Kainos, in the Kainos look. Install it from **Setup > Modules** if you want it. It needs **Kainos 1.0.12** or later.
 
-This is version 0.4: the LOG page, uploads, POTA and contests. Awards are coming next.
+Version 0.5 has all of it: the LOG page, uploads and confirmations, POTA, contests and awards.
 
 ## Using it
 
@@ -60,6 +60,17 @@ The **CONTEST** tab takes the place of the LOG page's entry row and log while it
 
 The F1 / F2 / F3 hints say what to send. The logbook doesn't send them itself yet: a module can't start the voice keyer or Kainos's CW memories.
 
+## Awards
+
+The **AWARDS** tab, under the entry row, adds up the log:
+
+- **Count as confirmed:** LoTW + cards (what ARRL and CQ credit, the default), eQSL, QRZ, or any confirmation. It's the same choice as the worked-before grid's, and the line beside it says when the choice isn't one ARRL or CQ accept.
+- **A band and a mode** (CW, phone, digital), or all of them.
+- **DXCC:** countries worked and confirmed toward 100, by continent; 5BDXCC's five bands (80 to 10 m, 100 each); and band-countries for the DXCC Challenge (160 to 6 m). Below, the countries (blue worked, gold confirmed).
+- **WAS:** the 50 states as tiles. States come from each QSO's state, for the US, Alaska and Hawaii.
+- **WAZ:** the 40 CQ zones as tiles, from the zone logged or the call's.
+- **Grids:** four-character squares on all bands, and on 6 m and 2 m toward VUCC's 100.
+
 ## Settings
 
 - **Station:** your call, grid and power. Kainos's own call and grid are used unless you change them here.
@@ -84,6 +95,7 @@ The F1 / F2 / F3 hints say what to send. The logbook doesn't send them itself ye
 | `Feeds.cs` | QSOs from the Digital Modes and SSTV modules' ADIF logs. |
 | `Pota.cs`, `UI/PotaPage.cs` | POTA: spots and park names from api.pota.app, the activation (the park on each QSO), the files for pota.app, spotting yourself. |
 | `Contest/`, `UI/ContestPage.cs` | Contests: the 37 definitions, exchange checking, dupes, scoring, Cabrillo and EDI; the CONTEST page. |
+| `Awards.cs`, `UI/AwardsPage.cs` | Awards: DXCC (5BDXCC, the Challenge), WAS, WAZ and grids, worked and confirmed by band and mode; the AWARDS page. |
 | `Services/` | The uploads: LoTW (through TQSL), eQSL, QRZ Logbook and Club Log; what's waiting, sending and retrying, and confirmations matched to the log. |
 | `UI/` | The pane, the lookup card (drawn), the log table, and the settings, edit and export windows. |
 
@@ -93,7 +105,7 @@ The F1 / F2 / F3 hints say what to send. The logbook doesn't send them itself ye
 .\build.ps1
 ```
 
-It builds the module and its self-test against `Kainos.ModuleApi.dll` from a Kainos build next to this folder (or `-KainosBin <folder>`), runs the self-test (ADIF, cty.dat, grids and headings, the log file, worked-before, the FT8 feed, the exports, contests (scoring worked by hand for CQ WW, Sweepstakes and Field Day; Cabrillo; EDI), POTA (spots, activations, the files, spotting) and uploads and confirmations against stand-ins for every service and for TQSL (a little web server on this PC, so nothing reaches a real log), and the pane and the Uploads window, drawn to PNGs), and writes `dist\kainos-logbook-<version>.zip` and `dist\registry-entry.json`. `Kainos.Logbook.SelfTest.exe --online` also downloads cty.dat and looks up W1AW on callook.info.
+It builds the module and its self-test against `Kainos.ModuleApi.dll` from a Kainos build next to this folder (or `-KainosBin <folder>`), runs the self-test (ADIF, cty.dat, grids and headings, the log file, worked-before, the FT8 feed, the exports, awards (a log worked out by hand), contests (scoring worked by hand for CQ WW, Sweepstakes and Field Day; Cabrillo; EDI), POTA (spots, activations, the files, spotting) and uploads and confirmations against stand-ins for every service and for TQSL (a little web server on this PC, so nothing reaches a real log), and the pane and the Uploads window, drawn to PNGs), and writes `dist\kainos-logbook-<version>.zip` and `dist\registry-entry.json`. `Kainos.Logbook.SelfTest.exe --online` also downloads cty.dat and looks up W1AW on callook.info.
 
 ## Licence
 

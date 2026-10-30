@@ -67,6 +67,7 @@ namespace Kainos.Logbook.SelfTest
                 UploadTests.Run(root, check);
                 PotaTests.Run(root, check);
                 ContestTests.Run(root, check);
+                AwardTests.Run(root, check);
                 module(root);
                 if (online) onlineTests(root);
             }
@@ -323,6 +324,17 @@ namespace Kainos.Logbook.SelfTest
                 h.SetSetting("page", "log");
                 pane.RestorePage();
                 check(call.Visible, "CONTEST page: back on LOG, its entry row is back");
+                h.SetSetting("page", "awards");
+                pane.RestorePage();
+                Application.DoEvents();
+                check(Controls(pane).OfType<AwardsPage>().First().Visible && call.Visible, "AWARDS page: shown under the entry row");
+                using (Bitmap bmp = new Bitmap(pane.Width, pane.Height))
+                {
+                    pane.DrawToBitmap(bmp, new Rectangle(0, 0, pane.Width, pane.Height));
+                    bmp.Save(Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location), "logbook-awards.png"), ImageFormat.Png);
+                }
+                h.SetSetting("page", "log");
+                pane.RestorePage();
                 h.Hz = 14225000; h.ModeName = "USB";
                 Book book = new Book(h, "0.1.0");
                 book.Store.Load();

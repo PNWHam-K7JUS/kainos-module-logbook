@@ -35,10 +35,11 @@ namespace Kainos.Logbook.UI
         private readonly Pota _pota;
         private readonly PotaPage _potaPage;
         private readonly ContestPage _contestPage;
+        private readonly AwardsPage _awardsPage;
         private string _page = "log";
         private int _parkSeq;
         private readonly IKainosTheme _t;
-        private readonly KButton _tabLog, _tabPota, _tabContest, _import, _export, _uploads, _settings, _pop, _logBtn;
+        private readonly KButton _tabLog, _tabPota, _tabContest, _tabAwards, _import, _export, _uploads, _settings, _pop, _logBtn;
         private readonly Label _status, _auto;
         private readonly Field _call, _sent, _rcvd, _name, _park, _comment;
         private readonly FlagStrip _flags;
@@ -76,6 +77,7 @@ namespace Kainos.Logbook.UI
             };
             _tabLog = btn("LOG", "The log and the lookup");
             _tabLog.On = true;
+            _tabAwards = btn("AWARDS", "DXCC, WAS, WAZ and grids: worked and confirmed");
             _tabContest = btn("CONTEST", "Contests: the exchange, dupes, mults, the score, Cabrillo");
             _tabPota = btn("POTA", "Parks on the Air: activators on the air now (double-click to tune), and your own activations");
             _import = btn("Import…", "Bring QSOs in from an ADIF file (another logger, LoTW, QRZ). QSOs already in the log are skipped.");
@@ -108,6 +110,10 @@ namespace Kainos.Logbook.UI
             _contestPage = new ContestPage(new Contesting(book)) { Visible = false };
             Controls.Add(_contestPage);
             _contestPage.Status += m => status(m);
+            _awardsPage = new AwardsPage(book) { Visible = false };
+            Controls.Add(_awardsPage);
+            _awardsPage.ConfirmChanged += () => analyse();
+            _tabAwards.Click += (s, e) => page("awards");
             _tabContest.Click += (s, e) => page("contest");
             Controls.Add(_potaPage);
             _potaPage.SpotChosen += tuneTo;
@@ -178,6 +184,7 @@ namespace Kainos.Logbook.UI
             _tabLog.SetBounds(x, y, _t.S(54), bh); x += _t.S(60);
             _tabPota.SetBounds(x, y, _t.S(60), bh); x += _t.S(66);
             _tabContest.SetBounds(x, y, _t.S(84), bh); x += _t.S(90);
+            _tabAwards.SetBounds(x, y, _t.S(80), bh); x += _t.S(86);
             int right = pad + w;
             _pop.SetBounds(right - _t.S(70), y, _t.S(70), bh); right -= _t.S(76);
             _settings.SetBounds(right - _t.S(78), y, _t.S(78), bh); right -= _t.S(84);
@@ -211,6 +218,7 @@ namespace Kainos.Logbook.UI
             _grid.SetBounds(pad, y, w - cardW - gap, h);
             _card.SetBounds(pad + w - cardW, y, cardW, h);
             _potaPage.SetBounds(pad, y, w, h);
+            _awardsPage.SetBounds(pad, y, w, h);
         }
 
         // ---- pages: LOG (the log and the lookup) or POTA (spots and activating), under the same entry row ----
@@ -220,6 +228,7 @@ namespace Kainos.Logbook.UI
             _tabLog.On = p == "log";
             _tabPota.On = p == "pota";
             _tabContest.On = p == "contest";
+            _tabAwards.On = p == "awards";
             bool entry = p != "contest";
             foreach (Control c in new Control[] { _call, _sent, _rcvd, _name, _park, _comment, _logBtn, _auto, _flags }) c.Visible = entry;
             _contestPage.Visible = !entry;
@@ -228,6 +237,7 @@ namespace Kainos.Logbook.UI
             else _up.Kick(false);
             _grid.Visible = _card.Visible = p == "log";
             _potaPage.Visible = p == "pota";
+            _awardsPage.Visible = p == "awards";
             _potaPage.Showing = _running && p == "pota";
             _book.Host.SetSetting("page", p);
         }
