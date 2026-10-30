@@ -1,0 +1,12 @@
+{
+  "id": "logbook",
+  "name": "Logbook",
+  "description": "A logbook in the Kainos look: callsign lookup as you type (country, zones, beam heading, QRZ / HamQTH / callook), worked-before by band and mode, QSOs from VFO A and from the FT8 and SSTV modules, ADIF import and export.",
+  "version": "0.1.0",
+  "api": 1,
+  "minKainos": "1.0.12",
+  "entry": "Kainos.Logbook.dll",
+  "author": "Justin Cron K7JUS",
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://github.com/PNWHam-K7JUS/kainos-module-logbook"
+}
