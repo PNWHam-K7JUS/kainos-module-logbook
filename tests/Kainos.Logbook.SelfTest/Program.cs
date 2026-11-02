@@ -62,6 +62,7 @@ namespace Kainos.Logbook.SelfTest
                 geo();
                 store(root);
                 worked(root);
+                search();
                 feeds(root);
                 exports();
                 UploadTests.Run(root, check);
@@ -152,6 +153,21 @@ namespace Kainos.Logbook.SelfTest
             check(new LogStore(dir, "0.1.0").Let(x => { x.Load(); return x.Count == 2; }), "store: a delete is saved");
             int n = again.AddMany(new[] { qso("DL1ABC", "20261030", "1201", "20m", "SSB"), qso("DL1ABC", "20261030", "1201", "40m", "SSB"), qso("G4ABC", "20261030", "1400", "20m", "SSB") });
             check(n == 2, "store: an import skips a QSO already there (same call and band within 2 minutes), keeps the others");
+        }
+
+        // the log's search box: every word must match somewhere
+        private static void search()
+        {
+            Qso a = qso("DL1ABC", "20261030", "1201", "20m", "CW", "<NAME:4>Hans<COUNTRY:20>Fed. Rep. of Germany<GRIDSQUARE:6>JO62qm");
+            Qso b = qso("K7JUS/P", "20261101", "0900", "40m", "SSB", "<SUBMODE:3>LSB<STATE:2>WA<POTA_REF:7>US-1234<COMMENT:9>nice park");
+            Qso c = qso("JA1XYZ", "20250315", "2200", "15m", "MFSK", "<SUBMODE:3>FT8");
+            Func<Qso, string, bool> m = (q, t) => LogGrid.Matches(q, t.Split(' ').Select(x => x.ToUpperInvariant()).ToArray());
+            check(m(a, "dl1") && m(b, "/P") && !m(c, "DL1"), "search: part of a call");
+            check(m(a, "DL 20m CW") && !m(a, "DL 40m"), "search: every word must match (call, band, mode)");
+            check(m(a, "20") && m(c, "15M") && !m(a, "15"), "search: a band, with or without the m");
+            check(m(c, "ft8") && m(c, "MFSK") && m(b, "LSB") && m(b, "SSB"), "search: mode or submode");
+            check(m(c, "2025") && m(c, "2025-03") && m(b, "2026-11-01") && !m(a, "2025"), "search: the start of the date");
+            check(m(a, "hans") && m(a, "germany") && m(a, "JO62") && m(b, "WA") && m(b, "US-1234") && m(b, "park"), "search: name, country, grid, state, park, comment");
         }
 
         private static void worked(string root)

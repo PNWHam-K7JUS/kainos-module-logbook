@@ -2,8 +2,8 @@
 
 The logbook's LOG page: a toolbar (Import, Export, Settings, Pop out), the entry row (call, reports, name, their
 park, a comment, LOG), what will be logged with it (time, VFO A's frequency, band and mode, power, grid) and the
-alerts (new one, new band, new mode, worked today), then the log on the left and the lookup on the right.
-Enter logs, Esc clears.
+alerts (new one, new band, new mode, worked today), then the search box, the log on the left and the lookup on the
+right. Enter logs, Esc clears; Ctrl+F searches the log.
 
 This file is part of the Kainos Logbook module. Copyright (C) 2026 Justin Cron K7JUS. GPLv3 or later.
 */
@@ -40,7 +40,9 @@ namespace Kainos.Logbook.UI
         private int _parkSeq;
         private readonly IKainosTheme _t;
         private readonly KButton _tabLog, _tabPota, _tabContest, _tabAwards, _import, _export, _uploads, _settings, _pop, _logBtn;
-        private readonly Label _status, _auto;
+        private readonly Label _status, _auto, _found;
+        private readonly TextBox _search;
+        private readonly KButton _searchClear;
         private readonly Field _call, _sent, _rcvd, _name, _park, _comment;
         private readonly FlagStrip _flags;
         private readonly LogGrid _grid;
@@ -102,8 +104,22 @@ namespace Kainos.Logbook.UI
             _flags = new FlagStrip(_t);
             Controls.Add(_flags);
 
+            _search = new TextBox { BorderStyle = BorderStyle.FixedSingle, BackColor = _t.Surface, ForeColor = _t.Text, Font = _t.Font(_t.S(12), false) };
+            _search.HandleCreated += (s, e) => SendMessage(_search.Handle, 0x1501, (IntPtr)1, "Search the log: call, name, country, state, grid, park, band, mode or date");   // EM_SETCUEBANNER
+            tip.SetToolTip(_search, "Every word must match: \"DL 20m CW\" is German stations on 20 m CW. Part of a call works (\"K7J\", \"/P\"), and dates as 2026, 2026-10 or 2026-10-31. Esc clears.");
+            Controls.Add(_search);
+            _searchClear = btn("✕", "Clear the search");
+            _found = new Label { ForeColor = _t.Faint, BackColor = _t.Bg, AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Font = _t.Font(_t.S(11), false) };
+            Controls.Add(_found);
             _grid = new LogGrid(_t);
             Controls.Add(_grid);
+            _search.TextChanged += (s, e) => { _grid.Filter = _search.Text; foundText(); };
+            _search.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Escape) { _search.Text = ""; e.SuppressKeyPress = true; }
+                else if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Down) { if (_grid.RowCount > 0) { _grid.Focus(); _grid.CurrentCell = _grid.Rows[0].Cells[1]; } e.SuppressKeyPress = true; }
+            };
+            _searchClear.Click += (s, e) => { _search.Text = ""; _search.Focus(); };
             _card = new LookupCard(_t, book);
             Controls.Add(_card);
             _potaPage = new PotaPage(book, pota) { Visible = false };
@@ -137,6 +153,7 @@ namespace Kainos.Logbook.UI
             _grid.EditWanted += edit;
             _grid.DeleteWanted += delete;
             _grid.LookupWanted += q => { _call.Text = q.Call; _call.Box.Focus(); _call.Box.SelectAll(); };
+            _grid.SameCallWanted += q => { _search.Text = q.Call; _search.Focus(); _search.SelectAll(); };
             _grid.CardToggled += q => { Qso c = q.Clone(); c.CardReceived = !q.CardReceived; _book.Store.Update(c); status(c.CardReceived ? "Card from " + c.Call + " ticked" : "Card from " + c.Call + " unticked"); };
 
             _book.Store.Changed += () => _book.Host.BeginInvoke(refresh);
@@ -215,7 +232,13 @@ namespace Kainos.Logbook.UI
 
             int cardW = Math.Max(_t.S(290), Math.Min(_t.S(420), w * 36 / 100));
             int h = Math.Max(_t.S(60), ClientSize.Height - y - pad);
-            _grid.SetBounds(pad, y, w - cardW - gap, h);
+            int gridW = w - cardW - gap, sh = _t.S(24), foundW = Math.Min(_t.S(150), gridW / 3);
+            int boxW = Math.Max(_t.S(80), gridW - foundW - sh - 2 * gap);
+            _search.SetBounds(pad, y, boxW, sh);
+            _searchClear.SetBounds(pad + boxW + gap, y, sh, sh);
+            _found.SetBounds(pad + boxW + sh + 2 * gap, y, foundW, sh);
+            int gy = y + sh + _t.S(4);
+            _grid.SetBounds(pad, gy, gridW, Math.Max(_t.S(30), h - (gy - y)));
             _card.SetBounds(pad + w - cardW, y, cardW, h);
             _potaPage.SetBounds(pad, y, w, h);
             _awardsPage.SetBounds(pad, y, w, h);
@@ -235,7 +258,7 @@ namespace Kainos.Logbook.UI
             _up.Paused = !entry;
             if (!entry) { _contestPage.RadioChanged(); _contestPage.FocusCall(); }
             else _up.Kick(false);
-            _grid.Visible = _card.Visible = p == "log";
+            _grid.Visible = _card.Visible = _search.Visible = _searchClear.Visible = _found.Visible = p == "log";
             _potaPage.Visible = p == "pota";
             _awardsPage.Visible = p == "awards";
             _potaPage.Showing = _running && p == "pota";
@@ -403,9 +426,28 @@ namespace Kainos.Logbook.UI
         private void refresh()
         {
             _grid.SetRows(_book.Store.All());
+            foundText();
             uploadsText();
             analyse();
         }
+
+        // how many QSOs the search found, or how many are in the log
+        private void foundText()
+        {
+            string n = _grid.Total.ToString("N0", CultureInfo.InvariantCulture);
+            _found.Text = _grid.Filtered ? _grid.Shown.ToString("N0", CultureInfo.InvariantCulture) + " of " + n + " QSOs" : n + " QSO" + (_grid.Total == 1 ? "" : "s");
+            _found.ForeColor = _grid.Filtered ? (_grid.Shown == 0 ? _t.Tx : _t.Gold) : _t.Faint;
+            _searchClear.Enabled = _grid.Filtered || _search.Text.Length > 0;
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.F) && _page == "log") { _search.Focus(); _search.SelectAll(); return true; }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
 
         private void edit(Qso q)
         {
